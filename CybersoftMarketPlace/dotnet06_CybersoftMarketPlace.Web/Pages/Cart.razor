@@ -1,0 +1,294 @@
+@page "/cart"
+@layout HomePageMaster
+@using System.Globalization
+
+@inject CartStateService _cartStateService
+@implements IAsyncDisposable
+
+
+@* ===================== TIÊU ĐỀ BẢNG ===================== *@
+<div class="bg-white border rounded p-3 mb-3 d-none d-lg-block">
+    <div class="row align-items-center small text-secondary">
+        <div class="col-lg-5">
+            <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="checkAllTop" />
+                <label class="form-check-label text-dark" for="checkAllTop">Sản Phẩm</label>
+            </div>
+        </div>
+        <div class="col-lg-2 text-center">Đơn Giá</div>
+        <div class="col-lg-2 text-center">Số Lượng</div>
+        <div class="col-lg-2 text-center">Số Tiền</div>
+        <div class="col-lg-1 text-center">Thao Tác</div>
+    </div>
+</div>
+
+@* ===================== DANH SÁCH SẢN PHẨM TRONG GIỎ ===================== *@
+<div class="bg-white border rounded mb-3">
+
+    @* --------- Tên shop --------- *@
+    <div class="d-flex flex-wrap align-items-center gap-2 p-3 border-bottom">
+        <input class="form-check-input mt-0" type="checkbox" checked />
+        <span class="badge bg-danger">Yêu thích</span>
+        <span class="fw-semibold">Shop Công Nghệ Số</span>
+        <a href="#" class="btn btn-sm btn-outline-danger">
+            <i class="far fa-comment-dots me-1"></i>Chat Ngay
+        </a>
+        <a href="#" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-store me-1"></i>Xem Shop
+        </a>
+    </div>
+
+    @* --------- Danh sách sản phẩm lấy từ cartStateDTO --------- *@
+    @if (CartItems.Count == 0)
+    {
+        <div class="p-4 text-center text-secondary small">
+            <i class="fas fa-shopping-cart d-block fs-3 mb-2"></i>
+            Giỏ hàng của bạn đang trống.
+        </div>
+    }
+    else
+    {
+        @foreach (var item in CartItems)
+        {
+            <div class="row align-items-center g-3 p-3 border-bottom">
+                <div class="col-12 col-lg-5">
+                    <div class="d-flex align-items-center gap-3">
+                        <input class="form-check-input mt-0 flex-shrink-0" type="checkbox" checked />
+                        <img src="@item.Image" width="80" height="80" class="border rounded flex-shrink-0"
+                             alt="@item.Name" />
+                        <div>
+                            <div class="small">@item.Name</div>
+                            <div class="small text-secondary mt-1">
+                                Mã sản phẩm: #@item.ProductVariantId
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4 col-lg-2 text-center small">
+                    <span>₫@FormatMoney(item.Price)</span>
+                </div>
+                <div class="col-4 col-lg-2">
+                    <div class="input-group input-group-sm mx-auto" style="width: 120px">
+                        <button class="btn btn-outline-secondary" type="button" @onclick="() => ChangeQuantityAsync(item.ProductVariantId, item.Quantity - 1)">-</button>
+                        <input type="text" class="form-control text-center" value="@item.Quantity" readonly />
+                        <button class="btn btn-outline-secondary" type="button" @onclick="() => ChangeQuantityAsync(item.ProductVariantId, item.Quantity + 1)">+</button>
+                    </div>
+                </div>
+                <div class="col-4 col-lg-2 text-center small text-danger fw-semibold">
+                    ₫@FormatMoney(item.Price * item.Quantity)
+                </div>
+                <div class="col-12 col-lg-1 text-center">
+                    <button type="button" class="btn btn-link btn-sm text-danger text-decoration-none p-0">Xóa</button>
+                    <div class="dropdown mt-1">
+                        <a href="#" class="small text-secondary text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
+                            Tìm sản phẩm tương tự
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item small" href="#">Sản phẩm cùng loại</a></li>
+                            <li><a class="dropdown-item small" href="#">Sản phẩm cùng shop</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    @* --------- Voucher của shop --------- *@
+    <div class="d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom small">
+        <i class="fas fa-ticket-alt text-danger"></i>
+        <span>Voucher giảm đến ₫30.000</span>
+        <a href="#" class="text-decoration-none text-primary">Xem thêm voucher</a>
+    </div>
+
+    @* --------- Vận chuyển --------- *@
+    <div class="d-flex flex-wrap align-items-center gap-2 px-3 py-2 small">
+        <i class="fas fa-truck text-success"></i>
+        <span class="text-secondary">Giảm ₫300.000 phí vận chuyển đơn tối thiểu ₫0</span>
+        <a href="#" class="text-decoration-none text-primary">Tìm hiểu thêm</a>
+    </div>
+
+</div>
+
+@* ===================== THANH THANH TOÁN ===================== *@
+<div class="bg-white border rounded sticky-bottom">
+
+    @* --------- Voucher và Xu --------- *@
+    <div class="d-flex flex-wrap align-items-center gap-3 p-3 border-bottom small">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fas fa-ticket-alt text-danger"></i>
+            <span>Shopee Voucher</span>
+            <a href="#" class="text-decoration-none text-primary">Chọn hoặc nhập mã</a>
+        </div>
+        <div class="d-flex align-items-center gap-2 ms-lg-auto">
+            <i class="fas fa-coins text-warning"></i>
+            <span>Shopee Xu</span>
+            <span class="text-secondary">Dùng 12.500 Shopee Xu (₫12.500)</span>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" />
+            </div>
+        </div>
+    </div>
+
+    @* --------- Dòng thao tác và tổng tiền --------- *@
+    <div class="row align-items-center g-3 p-3">
+
+        <div class="col-12 col-lg-6">
+            <div class="d-flex flex-wrap align-items-center gap-3 small">
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="checkAllBottom" />
+                    <label class="form-check-label" for="checkAllBottom">Chọn Tất Cả (@CartItems.Count)</label>
+                </div>
+                <button type="button" class="btn btn-link btn-sm text-dark text-decoration-none p-0">Xóa</button>
+                <button type="button" class="btn btn-link btn-sm text-dark text-decoration-none p-0">
+                    Lưu vào mục Đã thích
+                </button>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-3">
+                <div class="text-lg-end">
+                    <div class="small">
+                        Tổng thanh toán (@TotalQuantity Sản phẩm):
+                        <span class="fs-4 fw-semibold text-danger ms-2">₫@FormatMoney(TotalAmount)</span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-danger px-5">Mua Hàng</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@* ===================== CÓ THỂ BẠN CŨNG THÍCH ===================== *@
+<h6 class="text-uppercase text-secondary fw-bold text-center my-4">Có Thể Bạn Cũng Thích</h6>
+
+<div class="row g-3">
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 border">
+            <img src="https://picsum.photos/id/30/300" class="card-img-top" alt="Chuột không dây" />
+            <div class="card-body p-2">
+                <p class="small mb-2">Chuột không dây pin sạc, im lặng, 2.4G</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-danger fw-semibold small">₫189.000</span>
+                    <span class="text-secondary small">Đã bán 1,2k</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 border">
+            <img src="https://picsum.photos/id/48/300" class="card-img-top" alt="Bàn phím cơ" />
+            <div class="card-body p-2">
+                <p class="small mb-2">Bàn phím cơ RGB 87 phím, switch đỏ</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-danger fw-semibold small">₫650.000</span>
+                    <span class="text-secondary small">Đã bán 856</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 border">
+            <img src="https://picsum.photos/id/60/300" class="card-img-top" alt="Balo laptop" />
+            <div class="card-body p-2">
+                <p class="small mb-2">Balo laptop chống nước 15.6 inch</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-danger fw-semibold small">₫255.000</span>
+                    <span class="text-secondary small">Đã bán 3,4k</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 border">
+            <img src="https://picsum.photos/id/96/300" class="card-img-top" alt="Đồng hồ thông minh" />
+            <div class="card-body p-2">
+                <p class="small mb-2">Đồng hồ thông minh đo nhịp tim, chống nước</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-danger fw-semibold small">₫499.000</span>
+                    <span class="text-secondary small">Đã bán 720</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 border">
+            <img src="https://picsum.photos/id/106/300" class="card-img-top" alt="Giá đỡ điện thoại" />
+            <div class="card-body p-2">
+                <p class="small mb-2">Giá đỡ điện thoại nhôm, gập gọn</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-danger fw-semibold small">₫79.000</span>
+                    <span class="text-secondary small">Đã bán 5,1k</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100 border">
+            <img src="https://picsum.photos/id/119/300" class="card-img-top" alt="Loa bluetooth mini" />
+            <div class="card-body p-2">
+                <p class="small mb-2">Loa bluetooth mini âm bass mạnh, pin 12 giờ</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-danger fw-semibold small">₫315.000</span>
+                    <span class="text-secondary small">Đã bán 2,8k</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+@code {
+    //Lấy dữ liệu giỏ hàng từ state service (hub trả về qua GetCartByUserId)
+    private List<CartItemDTO> CartItems => _cartStateService.cartStateDTO.CartItems;
+
+    //Tổng số lượng sản phẩm trong giỏ
+    private int TotalQuantity => CartItems.Sum(item => item.Quantity);
+
+    //Tổng tiền phải thanh toán
+    private decimal TotalAmount => CartItems.Sum(item => item.Price * item.Quantity);
+
+    //Định dạng tiền kiểu Việt Nam: 1200000 -> 1.200.000
+    private static string FormatMoney(decimal value) => value.ToString("#,##0", new CultureInfo("vi-VN"));
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cartStateService.OnChange += OnCartStateChanged;
+
+        //Kết nối websocket tới cart-hub (state service tự bỏ qua nếu chưa đăng nhập)
+        await _cartStateService.StartHubConnectionAsync();
+
+        //gọi load giỏ hàng mỗi khi vào trang (gọi api CartHub)
+        await _cartStateService.LoadCartAsync();
+    }
+
+
+    public async Task ChangeQuantityAsync(int productVariantId, int newQuantity)
+    {
+        Console.WriteLine(@$"{productVariantId} - {newQuantity}");
+        //Gọi hub để thay đổi số lượng sản phẩm trong giỏ hàng
+        await _cartStateService.ChangeQuantityVariantInCart(productVariantId, newQuantity);
+    }
+
+
+
+    //Handler của hub chạy ngoài luồng UI nên phải bọc InvokeAsync
+    private void OnCartStateChanged() => InvokeAsync(StateHasChanged);
+
+
+    public async ValueTask DisposeAsync()
+    {
+        _cartStateService.OnChange -= OnCartStateChanged;
+
+        //Huỷ kết nối websocket khi component bị hủy
+        await _cartStateService.StopHubConnectionAsync();
+    }
+}
+
+
+
+

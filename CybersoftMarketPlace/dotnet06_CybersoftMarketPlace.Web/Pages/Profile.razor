@@ -1,0 +1,484 @@
+@page "/profile"
+@layout HomePageMaster
+
+@inject UserStateService _userStateService
+@inject OrderStateService _orderStateService
+@inject NavigationManager _navigationManager
+@implements IDisposable
+
+@* ===================== TRANG HỒ SƠ NGƯỜI DÙNG ===================== *@
+@{
+    // Lấy sẵn user hiện tại để dùng trong markup cho gọn.
+    ProfileUserDTO? user = _userStateService.CurrentUser;
+}
+
+@if (user == null)
+{
+    @* Chưa tải xong profile (hoặc chưa đăng nhập) — OnInitialized sẽ đá về /login nếu không có token *@
+    <div class="text-center text-secondary py-5">
+        <div class="spinner-border text-danger" role="status"></div>
+        <p class="mt-2 mb-0">Đang tải hồ sơ...</p>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+
+        @* --------- CỘT TRÁI: THẺ NGƯỜI DÙNG + MENU --------- *@
+        <div class="col-12 col-md-4 col-lg-3">
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body text-center p-4">
+                    <img src="@AvatarOrDefault(user.AvatarUrl)" alt="Ảnh đại diện"
+                         class="rounded-circle border mb-3" width="120" height="120"
+                         style="object-fit:cover;" />
+                    <h6 class="fw-semibold mb-1">@user.FullName</h6>
+                    <p class="small text-secondary mb-3">@user.Email</p>
+                    @* (1) Đổi ảnh: chuyển về tab hồ sơ và focus vào ô link ảnh *@
+                    <button type="button" class="btn btn-outline-danger btn-sm" @onclick="FocusAvatarAsync">
+                        <i class="fas fa-camera me-1"></i>Đổi ảnh đại diện
+                    </button>
+                </div>
+            </div>
+
+            @* (2) 6 mục menu = các tab, (3) Đăng xuất *@
+            <div class="list-group shadow-sm">
+                <button type="button" class="list-group-item list-group-item-action @TabClass("profile")" @onclick='() => SelectTab("profile")'>
+                    <i class="fas fa-user me-2"></i>Hồ sơ của tôi
+                </button>
+                <button type="button" class="list-group-item list-group-item-action @TabClass("password")" @onclick='() => SelectTab("password")'>
+                    <i class="fas fa-lock me-2"></i>Đổi mật khẩu
+                </button>
+                <button type="button" class="list-group-item list-group-item-action @TabClass("address")" @onclick='() => SelectTab("address")'>
+                    <i class="fas fa-map-marker-alt me-2"></i>Địa chỉ giao hàng
+                </button>
+                <button type="button" class="list-group-item list-group-item-action @TabClass("orders")" @onclick='() => SelectTab("orders")'>
+                    <i class="fas fa-box me-2"></i>Đơn mua
+                </button>
+                <button type="button" class="list-group-item list-group-item-action @TabClass("voucher")" @onclick='() => SelectTab("voucher")'>
+                    <i class="fas fa-ticket-alt me-2"></i>Kho voucher
+                </button>
+                <button type="button" class="list-group-item list-group-item-action text-danger" @onclick="LogoutAsync">
+                    <i class="fas fa-sign-out-alt me-2"></i>Đăng xuất
+                </button>
+            </div>
+
+        </div>
+
+        @* --------- CỘT PHẢI: NỘI DUNG THEO TAB --------- *@
+        <div class="col-12 col-md-8 col-lg-9">
+
+            @* Alert dùng chung cho mọi tab *@
+            @if (!string.IsNullOrEmpty(_alertMsg))
+            {
+                <div class="alert alert-@_alertType alert-dismissible d-flex align-items-center" role="alert">
+                    <i class="fas @(_alertType == "success" ? "fa-check-circle" : "fa-exclamation-circle") me-2"></i>
+                    <div>@_alertMsg</div>
+                    <button type="button" class="btn-close" @onclick="() => _alertMsg = string.Empty"></button>
+                </div>
+            }
+
+            @* ========== TAB: HỒ SƠ CỦA TÔI ========== *@
+            @if (_tab == "profile")
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-1">Hồ sơ của tôi</h5>
+                        <p class="small text-secondary mb-0">Quản lý thông tin hồ sơ để bảo mật tài khoản</p>
+                    </div>
+
+                    <div class="card-body p-4">
+
+                        @* (4) Mã người dùng — chỉ để xem, không cho sửa, không gửi lên server *@
+                        <div class="row mb-3 align-items-center">
+                            <label class="col-12 col-sm-3 col-form-label text-sm-end text-secondary">Mã người dùng</label>
+                            <div class="col-12 col-sm-9">
+                                <span class="badge bg-light text-secondary border font-monospace">@user.Id</span>
+                            </div>
+                        </div>
+
+                        @* (5) Họ và tên *@
+                        <div class="row mb-3 align-items-center">
+                            <label for="fullName" class="col-12 col-sm-3 col-form-label text-sm-end text-secondary">Họ và tên</label>
+                            <div class="col-12 col-sm-9">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="fas fa-user text-secondary"></i></span>
+                                    <input type="text" class="form-control" id="fullName" @bind="_form.FullName" />
+                                </div>
+                            </div>
+                        </div>
+
+                        @* (5) Email *@
+                        <div class="row mb-3 align-items-center">
+                            <label for="email" class="col-12 col-sm-3 col-form-label text-sm-end text-secondary">Email</label>
+                            <div class="col-12 col-sm-9">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="fas fa-envelope text-secondary"></i></span>
+                                    <input type="email" class="form-control" id="email" @bind="_form.Email" />
+                                </div>
+                            </div>
+                        </div>
+
+                        @* (5) Số điện thoại *@
+                        <div class="row mb-3 align-items-center">
+                            <label for="phoneNumber" class="col-12 col-sm-3 col-form-label text-sm-end text-secondary">Số điện thoại</label>
+                            <div class="col-12 col-sm-9">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="fas fa-phone text-secondary"></i></span>
+                                    <input type="tel" class="form-control" id="phoneNumber" @bind="_form.PhoneNumber" />
+                                </div>
+                            </div>
+                        </div>
+
+                        @* (5) Địa chỉ *@
+                        <div class="row mb-3">
+                            <label for="address" class="col-12 col-sm-3 col-form-label text-sm-end text-secondary">Địa chỉ</label>
+                            <div class="col-12 col-sm-9">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white align-items-start"><i class="fas fa-map-marker-alt text-secondary"></i></span>
+                                    <textarea class="form-control" id="address" rows="2" @bind="_form.Address"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* (6) Ảnh đại diện — dán link, lưu riêng qua API updateAvatar *@
+                        <div class="row mb-4">
+                            <label for="avatarUrl" class="col-12 col-sm-3 col-form-label text-sm-end text-secondary">Ảnh đại diện</label>
+                            <div class="col-12 col-sm-9">
+                                <div class="d-flex align-items-center gap-3">
+                                    <img src="@AvatarOrDefault(_avatarUrl)" alt="Ảnh đại diện"
+                                         class="rounded-circle border" width="64" height="64" style="object-fit:cover;" />
+                                    <div class="flex-grow-1">
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-white"><i class="fas fa-image text-secondary"></i></span>
+                                            <input type="text" class="form-control" id="avatarUrl" @ref="_avatarInputRef"
+                                                   @bind="_avatarUrl" placeholder="Nhập đường dẫn ảnh đại diện" />
+                                            <button type="button" class="btn btn-outline-danger" @onclick="SaveAvatarAsync" disabled="@_savingAvatar">
+                                                @if (_savingAvatar)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                                }
+                                                Lưu ảnh
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Dán link ảnh (JPEG, PNG). Upload file từ máy là phần nâng cao.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        @* (7) Lưu thay đổi / Huỷ *@
+                        <div class="row">
+                            <div class="col-12 col-sm-9 offset-sm-3">
+                                <button type="button" class="btn btn-danger px-4 me-2" @onclick="SaveProfileAsync" disabled="@_savingProfile">
+                                    @if (_savingProfile)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="fas fa-save me-1"></i>Lưu thay đổi
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary px-4" @onclick="CancelProfile" disabled="@_savingProfile">
+                                    Huỷ
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            }
+
+            @* ========== TAB: ĐỔI MẬT KHẨU ========== *@
+            else if (_tab == "password")
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-1">Đổi mật khẩu</h5>
+                        <p class="small text-secondary mb-0">Để bảo mật, vui lòng nhập đúng mật khẩu hiện tại</p>
+                    </div>
+                    <div class="card-body p-4">
+
+                        <div class="row mb-3 align-items-center">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-end text-secondary">Mật khẩu hiện tại</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <input type="password" class="form-control" @bind="_pwd.OldPassword" placeholder="••••••••" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3 align-items-center">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-end text-secondary">Mật khẩu mới</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <input type="password" class="form-control" @bind="_pwd.NewPassword" placeholder="Ít nhất 6 ký tự" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3 align-items-center">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-end text-secondary">Nhập lại mật khẩu mới</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <input type="password" class="form-control" @bind="_pwd.ConfirmPassword" placeholder="••••••••" />
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12 col-sm-8 offset-sm-4">
+                                <button type="button" class="btn btn-danger px-4" @onclick="ChangePasswordAsync" disabled="@_savingPwd">
+                                    @if (_savingPwd)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    Xác nhận
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            }
+
+            @* ========== TAB: ĐƠN MUA ========== *@
+            else if (_tab == "orders")
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0">Đơn mua</h5>
+                    </div>
+                    <div class="card-body p-4">
+
+                        @if (_orderStateService.IsLoading)
+                        {
+                            <div class="text-center text-secondary py-4">
+                                <div class="spinner-border text-danger" role="status"></div>
+                                <p class="mt-2 mb-0">Đang tải đơn mua...</p>
+                            </div>
+                        }
+                        else if (_orderStateService.MyOrders.Count == 0)
+                        {
+                            <div class="text-center text-secondary py-5">
+                                <i class="fas fa-box-open fa-3x mb-3"></i>
+                                <p class="mb-0">Bạn chưa có đơn mua nào.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (OrderHistoryDTO order in _orderStateService.MyOrders)
+                            {
+                                <div class="border rounded mb-3">
+                                    <div class="d-flex justify-content-between align-items-center bg-light px-3 py-2 border-bottom">
+                                        <span class="small text-secondary">
+                                            #@order.OrderId · @order.CreatedAt.ToString("dd/MM/yyyy") ·
+                                            <span class="badge bg-warning text-dark">@order.Status</span>
+                                        </span>
+                                        <span class="fw-bold text-danger">@("₫" + order.TotalAmount.ToString("N0"))</span>
+                                    </div>
+                                    <div class="p-3">
+                                        @foreach (OrderHistoryItemDTO item in order.Items)
+                                        {
+                                            <div class="d-flex align-items-center gap-3 py-2 border-bottom">
+                                                <img src="@AvatarOrDefault(item.ImageUrl)" width="56" height="56"
+                                                     class="rounded border" style="object-fit:cover;" alt="@item.ProductName" />
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-semibold">@item.ProductName</div>
+                                                    <div class="small text-secondary">@item.VariantName</div>
+                                                </div>
+                                                <div class="text-end small">
+                                                    <div>x@item.Quantity · @("₫" + item.UnitPrice.ToString("N0"))</div>
+                                                    <div class="fw-semibold">@("₫" + item.SubTotal.ToString("N0"))</div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+
+                    </div>
+                </div>
+            }
+
+            @* ========== TAB NÂNG CAO (chưa triển khai) ========== *@
+            else
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center text-secondary py-5">
+                        <i class="fas fa-tools fa-3x mb-3"></i>
+                        <p class="mb-0">
+                            @(_tab == "address" ? "Địa chỉ giao hàng" : "Kho voucher") — phần nâng cao, chưa triển khai.
+                        </p>
+                    </div>
+                </div>
+            }
+
+        </div>
+
+    </div>
+}
+
+@code {
+    // Tab đang chọn: profile | password | orders | address | voucher
+    private string _tab = "profile";
+
+    // Bản sao dữ liệu hồ sơ để @bind — bind vào bản sao này (không bind thẳng CurrentUser)
+    // để nút "Huỷ" chỉ việc nạp lại từ CurrentUser là khôi phục được, không phải gọi API.
+    private UpdateProfileDTO _form = new();
+    private string _avatarUrl = "";
+    private ChangePasswordDTO _pwd = new();
+
+    private bool _savingProfile;
+    private bool _savingAvatar;
+    private bool _savingPwd;
+
+    private string _alertMsg = "";
+    private string _alertType = "success"; // "success" | "danger"
+
+    private ElementReference _avatarInputRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _userStateService.OnChange += StateHasChanged;
+        _orderStateService.OnChange += StateHasChanged;
+
+        // Nạp hồ sơ. Nếu chưa đăng nhập -> đá về /login (không để trang trắng/null).
+        await _userStateService.GetProfileAsync();
+        if (_userStateService.CurrentUser == null)
+        {
+            _navigationManager.NavigateTo("/login");
+            return;
+        }
+        FillFormFromCurrent();
+    }
+
+    // Copy dữ liệu từ CurrentUser vào form chỉnh sửa.
+    private void FillFormFromCurrent()
+    {
+        ProfileUserDTO? u = _userStateService.CurrentUser;
+        if (u == null) return;
+        _form = new UpdateProfileDTO
+        {
+            FullName = u.FullName,
+            Email = u.Email,
+            PhoneNumber = u.PhoneNumber,
+            Address = u.Address
+        };
+        _avatarUrl = u.AvatarUrl ?? "";
+    }
+
+    private string TabClass(string tab) => _tab == tab ? "active" : "";
+
+    private async Task SelectTab(string tab)
+    {
+        _tab = tab;
+        _alertMsg = "";
+        if (tab == "orders")
+        {
+            await _orderStateService.LoadMyOrdersAsync();
+        }
+    }
+
+    private void ShowAlert(bool ok)
+    {
+        _alertType = ok ? "success" : "danger";
+        _alertMsg = _userStateService.ActionMessage;
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        _alertMsg = "";
+        _savingProfile = true;
+        try
+        {
+            bool ok = await _userStateService.UpdateProfileAsync(_form);
+            ShowAlert(ok);
+            if (ok) FillFormFromCurrent();
+        }
+        finally
+        {
+            _savingProfile = false;
+        }
+    }
+
+    // Huỷ: không gọi API, chỉ nạp lại dữ liệu gốc vào form.
+    private void CancelProfile()
+    {
+        FillFormFromCurrent();
+        _alertMsg = "";
+    }
+
+    private async Task SaveAvatarAsync()
+    {
+        _alertMsg = "";
+        _savingAvatar = true;
+        try
+        {
+            bool ok = await _userStateService.UpdateAvatarAsync(_avatarUrl);
+            ShowAlert(ok);
+        }
+        finally
+        {
+            _savingAvatar = false;
+        }
+    }
+
+    // (1) Đổi ảnh đại diện: về tab hồ sơ rồi focus vào ô link ảnh.
+    private async Task FocusAvatarAsync()
+    {
+        _tab = "profile";
+        _alertMsg = "";
+        StateHasChanged();
+        await _avatarInputRef.FocusAsync();
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        _alertMsg = "";
+
+        // Kiểm nhanh ở FE trước khi gọi API (BE vẫn kiểm lại lần nữa).
+        if (string.IsNullOrWhiteSpace(_pwd.OldPassword))
+        {
+            _alertType = "danger";
+            _alertMsg = "Vui lòng nhập mật khẩu hiện tại.";
+            return;
+        }
+        if (string.IsNullOrEmpty(_pwd.NewPassword) || _pwd.NewPassword.Length < 6)
+        {
+            _alertType = "danger";
+            _alertMsg = "Mật khẩu mới phải có ít nhất 6 ký tự.";
+            return;
+        }
+        if (_pwd.NewPassword != _pwd.ConfirmPassword)
+        {
+            _alertType = "danger";
+            _alertMsg = "Xác nhận mật khẩu không khớp.";
+            return;
+        }
+
+        _savingPwd = true;
+        try
+        {
+            bool ok = await _userStateService.ChangePasswordAsync(_pwd);
+            ShowAlert(ok);
+            if (ok) _pwd = new ChangePasswordDTO(); // xoá trắng các ô sau khi đổi thành công
+        }
+        finally
+        {
+            _savingPwd = false;
+        }
+    }
+
+    // (3) Đăng xuất: xoá token rồi về /login.
+    private async Task LogoutAsync()
+    {
+        await _userStateService.LogoutAsync();
+        _navigationManager.NavigateTo("/login");
+    }
+
+    // Ảnh trống thì dùng ảnh mặc định.
+    private string AvatarOrDefault(string? url) =>
+        string.IsNullOrWhiteSpace(url) ? "https://placehold.co/120x120?text=Avatar" : url;
+
+    public void Dispose()
+    {
+        _userStateService.OnChange -= StateHasChanged;
+        _orderStateService.OnChange -= StateHasChanged;
+    }
+}

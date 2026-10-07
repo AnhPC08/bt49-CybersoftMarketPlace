@@ -1,0 +1,78 @@
+@page "/"
+@layout HomePageMaster
+
+@inject ProductStateService _prodStateService;
+@implements IDisposable
+
+<div class="container-fluid">
+
+    <h3>Cybersoft marketplace</h3>
+    <div class="row">
+        @foreach (ProductIndexPageDTO pro in _prodStateService.Products)
+        {
+            <div class="col-md-3 mt-2">
+                <a href="@($"/detail/{pro.Id}")" class="text-decoration-none text-dark">
+                <div class="card">
+                    @* Ảnh trong DB chỉ là ảnh placeholder (placehold.co) -> thay bằng ảnh thật theo mã sản phẩm.
+                       Dùng picsum.photos: ảnh chụp thật, cố định theo id nên mỗi sản phẩm luôn ra 1 ảnh. *@
+                    <img src="@ImgSrc(pro)" class="card-img-top" alt="@pro.Name"
+                         style="height:200px;object-fit:cover;"
+                         onerror="this.onerror=null;this.src='https://picsum.photos/seed/@(pro.Id)/400/300';">
+                    <div class="card-body">
+                        <h3 class="card-title">@pro.Name</h3>
+                        <p class="card-text">Price: @pro.Price</p>
+                        <p class="text-primary fst-italic">@pro.ProductCategory.Name</p>
+                            <p class="text-success fw-bold">@pro.Shop.Name</p>
+                            <p class="card-text">@pro.Shop.Description</p>
+                        <button class="btn btn-primary">Add to Cart</button>
+                    </div>
+                </div>
+                </a>
+            </div>
+        }
+    </div>
+
+
+</div>
+
+
+@code {
+
+    // DB chỉ lưu ảnh placeholder (placehold.co / via.placeholder) nên hiển thị chữ thay vì ảnh.
+    // Nếu gặp ảnh placeholder (hoặc rỗng) thì dùng ảnh thật từ picsum theo mã sản phẩm.
+    private string ImgSrc(ProductIndexPageDTO p)
+    {
+        string? url = p.ImageUrl;
+        if (IsPlaceholder(url))
+        {
+            return $"https://picsum.photos/seed/{p.Id}/400/300";
+        }
+        return url!;
+    }
+
+    // Nhận diện các dịch vụ ảnh giả mà DB của thầy đang dùng (dummyimage.com, placehold.co, via.placeholder...).
+    private bool IsPlaceholder(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return true;
+        url = url.ToLower();
+        return url.Contains("dummyimage") || url.Contains("placehold")
+            || url.Contains("placeholder") || url.Contains("fakeimg") || url.Contains("dummy");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _prodStateService.OnChange += StateHasChanged;
+
+        await _prodStateService.LoadProductsAsync();
+
+    }
+
+    public void Dispose()
+    {
+        _prodStateService.OnChange -= StateHasChanged;
+    }
+
+
+}
+
+

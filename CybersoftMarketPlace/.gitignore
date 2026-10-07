@@ -1,0 +1,14 @@
+# Build output .NET - KHÔNG nộp/commit
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+
+# IDE / máy
+.vs/
+.vscode/
+*.user
+
+# File hệ điều hành
+.DS_Store
+Thumbs.db
